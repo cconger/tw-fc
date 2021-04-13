@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/cconger/tw-fc/twitch"
@@ -54,10 +55,35 @@ func main() {
 	}
 }
 
+type download struct {
+	url      string
+	filename string
+}
+
 func triggerDownload(ctx context.Context, client *twitch.Client, number int, outDir string) error {
 	streams, err := client.GetTopStreams(context.Background(), number)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	log.Printf("Got %d streams", len(streams))
+	var wg sync.WaitGroup
+	c := make(chan download)
+	workerCount := 32
+	log.Printf("Starting %d workers...", workerCount)
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for dl := range c {
+				err = DownloadURLToFile(ctx, dl.url, dl.filename)
+				if err != nil {
+					log.Printf("Err downloading file: %s", err.Error())
+					continue
+				}
+			}
+		}()
 	}
 
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
@@ -68,12 +94,14 @@ func triggerDownload(ctx context.Context, client *twitch.Client, number int, out
 			continue
 		}
 		filename := path.Join(outDir, fmt.Sprintf("%d_%s.jpg", s.ID, timestamp))
-		err = DownloadURLToFile(ctx, url, filename)
-		if err != nil {
-			log.Printf("Err downloading file: %s", err.Error())
-			continue
+		c <- download{
+			url:      url,
+			filename: filename,
 		}
 	}
+	close(c)
+	wg.Wait()
+
 	return nil
 }
 
