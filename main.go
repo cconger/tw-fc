@@ -21,6 +21,7 @@ func main() {
 	frequency := flag.Duration("p", 1*time.Minute, "specify a golang parsable duration to wait between downloads")
 	number := flag.Int("n", 100, "specify the number of streams to download image for")
 	outDir := flag.String("out", "captures", "path to output images to")
+	game := flag.String("game", "", "game to capture")
 
 	flag.Parse()
 
@@ -36,7 +37,7 @@ func main() {
 		log.Fatalf("Unable to create output directory %s", outDir)
 	}
 	log.Printf("Downloading top %d streams every %s to %s", *number, frequency.String(), *outDir)
-	err = triggerDownload(ctx, client, *number, *outDir)
+	err = triggerDownload(ctx, client, *game, *number, *outDir)
 	log.Printf("Finished")
 	timer := time.NewTicker(*frequency)
 
@@ -44,7 +45,7 @@ func main() {
 		select {
 		case <-timer.C:
 			log.Printf("Downloading top %d streams", *number)
-			err := triggerDownload(ctx, client, *number, *outDir)
+			err := triggerDownload(ctx, client, *game, *number, *outDir)
 			log.Printf("Finished")
 			if err != nil {
 				log.Fatal(err)
@@ -60,8 +61,8 @@ type download struct {
 	filename string
 }
 
-func triggerDownload(ctx context.Context, client *twitch.Client, number int, outDir string) error {
-	streams, err := client.GetTopStreams(context.Background(), number)
+func triggerDownload(ctx context.Context, client *twitch.Client, game string, number int, outDir string) error {
+	streams, err := client.GetTopStreams(context.Background(), game, number)
 	if err != nil {
 		log.Fatal(err)
 	}

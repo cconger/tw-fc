@@ -72,7 +72,7 @@ type GetStreamsResponse struct {
 	Streams []Stream `json:"streams"`
 }
 
-func (c *Client) GetTopStreams(ctx context.Context, limit int) ([]Stream, error) {
+func (c *Client) GetTopStreams(ctx context.Context, game string, limit int) ([]Stream, error) {
 	streams := make([]Stream, limit)
 	for i := 0; i < limit/100; i++ {
 		offset := i * 100
@@ -82,6 +82,9 @@ func (c *Client) GetTopStreams(ctx context.Context, limit int) ([]Stream, error)
 		}
 
 		url := fmt.Sprintf("%s/streams?limit=%d&offset=%d", c.apiURL, rlimit, offset)
+		if game != "" {
+			url += "&game=" + game
+		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
 			return nil, err
